@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Topic-Based Document Clustering</title>
+
+<style>
+    body {
+        font-family: "Segoe UI", sans-serif;
+        background: linear-gradient(to bottom, #ece9e6, #ffffff);
+        padding: 40px;
+        margin: 0;
+    }
+
+    h2 {
+        text-align: center;
+        font-size: 32px;
+        margin-bottom: 20px;
+        color: #333;
+        font-weight: 600;
+    }
+
+    .container {
+        max-width: 900px;
+        margin: auto;
+        background: #fff;
+        padding: 25px 30px;
+        border-radius: 12px;
+        box-shadow: 0 0 25px rgba(0,0,0,0.1);
+    }
+
+    textarea {
+        width: 100%;
+        height: 180px;
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid #bbb;
+        font-size: 15px;
+        outline: none;
+        transition: 0.3s ease;
+    }
+    textarea:focus {
+        border-color: #6a5acd;
+        box-shadow: 0 0 10px rgba(106,90,205,0.3);
+    }
+
+    .input-row {
+        margin-top: 15px;
+        display: flex;
+        align-items: center;
+    }
+
+    label {
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    input[type="number"] {
+        width: 80px;
+        padding: 8px;
+        border-radius: 8px;
+        border: 1px solid #666;
+        font-size: 15px;
+    }
+
+    button {
+        margin-top: 20px;
+        padding: 12px 25px;
+        background: #6a5acd;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 16px;
+        cursor: pointer;
+        transition: 0.2s ease;
+    }
+    button:hover {
+        background: #5a4ac7;
+        transform: scale(1.03);
+    }
+
+    /* Cluster Boxes */
+    .cluster-box {
+        background: #fafafa;
+        padding: 18px;
+        border-radius: 12px;
+        margin-top: 18px;
+        border-left: 6px solid #6a5acd;
+        animation: fadeIn 0.45s ease-in-out;
+        transition: transform 0.20s ease;
+    }
+    .cluster-box:hover {
+        transform: translateY(-3px);
+        background: #f4f0ff;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .topic {
+        font-size: 22px;
+        font-weight: bold;
+        margin-bottom: 10px;
+        color: #4c3ea8;
+    }
+
+    .doc-item {
+        background: #ffffff;
+        padding: 10px 12px;
+        border-radius: 6px;
+        margin-top: 8px;
+        border: 1px solid #eee;
+        font-size: 15px;
+    }
+
+    .button-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    button {
+        flex: 1;
+    }
+
+    button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .loading {
+        display: none;
+        text-align: center;
+        margin-top: 20px;
+        font-size: 16px;
+        color: #666;
+    }
+
+    .loading.active::after {
+        content: "...";
+        animation: dots 1.5s steps(4, end) infinite;
+    }
+
+    @keyframes dots {
+        0%, 20% { content: "."; }
+        40% { content: ".."; }
+        60% { content: "..."; }
+        80%, 100% { content: ""; }
+    }
+
+    .error {
+        background: #fee;
+        color: #c33;
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 15px;
+        border-left: 4px solid #c33;
+        display: none;
+    }
+
+    .error.active {
+        display: block;
+    }
+
+    .success {
+        background: #efe;
+        color: #3c3;
+        padding: 12px;
+        border-radius: 8px;
+        margin-top: 15px;
+        border-left: 4px solid #3c3;
+        display: none;
+    }
+
+    .success.active {
+        display: block;
+    }
+
+    .doc-count {
+        font-size: 12px;
+        color: #999;
+        margin-top: 5px;
+    }
+
+    .tabs {
+        display: flex;
+        gap: 0;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #eee;
+    }
+
+    .tab-btn {
+        padding: 12px 20px;
+        background: #f0f0f0;
+        border: none;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: 0.2s;
+        border-bottom: 3px solid transparent;
+    }
+
+    .tab-btn.active {
+        background: #fff;
+        border-bottom-color: #6a5acd;
+        color: #6a5acd;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    .file-upload-area {
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        padding: 30px;
+        text-align: center;
+        cursor: pointer;
+        transition: 0.3s;
+        background: #fafafa;
+    }
+
+    .file-upload-area:hover {
+        border-color: #6a5acd;
+        background: #f5f0ff;
+    }
+
+    .file-upload-area.dragover {
+        border-color: #6a5acd;
+        background: #f0e8ff;
+    }
+
+    .file-upload-area p {
+        margin: 0 0 10px 0;
+        color: #666;
+    }
+
+    .file-list {
+        margin-top: 15px;
+        max-height: 200px;
+        overflow-y: auto;
+        background: #fff;
+        border: 1px solid #eee;
+        border-radius: 6px;
+        padding: 10px;
+    }
+
+    .file-item {
+        padding: 8px;
+        background: #f9f9f9;
+        margin: 5px 0;
+        border-radius: 4px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 13px;
+    }
+
+    .file-item .remove-file {
+        cursor: pointer;
+        color: #c33;
+        font-weight: bold;
+    }
+
+    .file-item .remove-file:hover {
+        color: #a00;
+    }
+
+    .supported-formats {
+        font-size: 12px;
+        color: #999;
+        margin-top: 10px;
+    }
+
+    input[type="file"] {
+        display: none;
+    }
+</style>
+
+</head>
+<body>
+
+<h2>🧠 Topic-Based Document Clustering</h2>
+
+<div class="container">
+
+    <!-- TABS -->
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('text')">📝 Text Input</button>
+        <button class="tab-btn" onclick="switchTab('file')">📁 Upload Files</button>
+    </div>
+
+    <!-- TEXT INPUT TAB -->
+    <div id="text" class="tab-content active">
+        <textarea id="inputDocs" placeholder="Enter documents separated by blank lines"></textarea>
+        <div class="doc-count" id="docCount"></div>
+    </div>
+
+    <!-- FILE UPLOAD TAB -->
+    <div id="file" class="tab-content">
+        <div class="file-upload-area" id="dropZone">
+            <p>📄 Drag and drop files here or click to select</p>
+            <p style="font-size: 12px; color: #999;">Supported: PDF, DOCX, PPTX, TXT</p>
+        </div>
+        <input type="file" id="fileInput" multiple accept=".pdf,.docx,.pptx,.txt,.doc">
+        <div class="file-list" id="fileList"></div>
+        <div class="supported-formats" id="supportedFormats"></div>
+    </div>
+
+    <!-- CLUSTERING CONTROLS -->
+    <div class="input-row">
+        <label>Number of Clusters:</label>
+        <input type="number" id="numClusters" min="2" max="20" value="3"/>
+    </div>
+
+    <div class="button-group">
+        <button id="clusterBtn" onclick="clusterDocs()">Cluster Now</button>
+        <button id="clearBtn" onclick="clearAll()" style="background: #999; flex: 0.5;">Clear</button>
+    </div>
+
+    <div class="loading" id="loading">Clustering documents</div>
+    <div class="error" id="error"></div>
+    <div class="success" id="success"></div>
+
+    <div id="output"></div>
+
+</div>
+
+<script>
+let selectedFiles = [];
+
+// TAB SWITCHING
+function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    
+    document.getElementById(tab).classList.add('active');
+    event.target.classList.add('active');
+}
+
+// FILE UPLOAD HANDLING
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const fileList = document.getElementById('fileList');
+
+dropZone.addEventListener('click', () => fileInput.click());
+
+dropZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    dropZone.classList.add('dragover');
+});
+
+dropZone.addEventListener('dragleave', () => {
+    dropZone.classList.remove('dragover');
+});
+
+dropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    dropZone.classList.remove('dragover');
+    handleFiles(e.dataTransfer.files);
+});
+
+fileInput.addEventListener('change', (e) => {
+    handleFiles(e.target.files);
+});
+
+function handleFiles(files) {
+    selectedFiles = Array.from(files);
+    updateFileList();
+}
+
+function updateFileList() {
+    fileList.innerHTML = '';
+    selectedFiles.forEach((file, index) => {
+        const item = document.createElement('div');
+        item.className = 'file-item';
+        item.innerHTML = `
+            <span>📄 ${file.name} (${(file.size / 1024).toFixed(1)} KB)</span>
+            <span class="remove-file" onclick="removeFile(${index})">✕</span>
+        `;
+        fileList.appendChild(item);
+    });
+}
+
+function removeFile(index) {
+    selectedFiles.splice(index, 1);
+    updateFileList();
+}
+
+function getSupportedFormats() {
+    fetch('/supported-formats')
+        .then(res => res.json())
+        .then(formats => {
+            const available = Object.entries(formats)
+                .filter(([_, available]) => available)
+                .map(([fmt, _]) => fmt.toUpperCase())
+                .join(', ');
+            document.getElementById('supportedFormats').textContent = `Available: ${available}`;
+        });
+}
+
+// TEXT INPUT HANDLING
+function updateDocCount() {
+    const text = document.getElementById("inputDocs").value.trim();
+    const docs = text ? text.split(/\n\s*\n/).filter(d => d.trim()) : [];
+    document.getElementById("docCount").textContent = `${docs.length} document(s) detected`;
+}
+
+function clearAll() {
+    document.getElementById("inputDocs").value = "";
+    document.getElementById("output").innerHTML = "";
+    document.getElementById("error").classList.remove("active");
+    document.getElementById("success").classList.remove("active");
+    selectedFiles = [];
+    fileInput.value = '';
+    updateFileList();
+    updateDocCount();
+}
+
+function showError(msg) {
+    const error = document.getElementById("error");
+    error.textContent = "❌ " + msg;
+    error.classList.add("active");
+    document.getElementById("success").classList.remove("active");
+}
+
+function showSuccess(msg) {
+    const success = document.getElementById("success");
+    success.textContent = "✅ " + msg;
+    success.classList.add("active");
+    document.getElementById("error").classList.remove("active");
+}
+
+async function clusterDocs() {
+    const activeTab = document.querySelector('.tab-content.active').id;
+    let docs = [];
+
+    // Get documents from active tab
+    if (activeTab === 'text') {
+        docs = document.getElementById("inputDocs").value.trim()
+            .split(/\n\s*\n/)
+            .filter(d => d.trim());
+    } else {
+        if (selectedFiles.length === 0) {
+            showError("Please select at least one file");
+            return;
+        }
+    }
+
+    const k = document.getElementById("numClusters").value;
+
+    // VALIDATION
+    if (activeTab === 'text' && docs.length === 0) {
+        showError("Please enter at least one document");
+        return;
+    }
+
+    if (docs.length > 0 && docs.length < k) {
+        showError(`Number of clusters (${k}) cannot exceed number of documents (${docs.length})`);
+        return;
+    }
+
+    // DISABLE BUTTON AND SHOW LOADING
+    const btn = document.getElementById("clusterBtn");
+    btn.disabled = true;
+    document.getElementById("loading").classList.add("active");
+    document.getElementById("error").classList.remove("active");
+    document.getElementById("success").classList.remove("active");
+
+    try {
+        let body;
+        let headers = {};
+
+        if (activeTab === 'text') {
+            headers["Content-Type"] = "application/json";
+            body = JSON.stringify({documents: docs, clusters: k});
+        } else {
+            // Use FormData for file upload
+            const formData = new FormData();
+            selectedFiles.forEach(file => {
+                formData.append('files', file);
+            });
+            formData.append('clusters', k);
+            body = formData;
+        }
+
+        const res = await fetch("/cluster", {
+            method: "POST",
+            headers: activeTab === 'text' ? headers : {},
+            body: body
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            showError(data.error || "Clustering failed");
+            return;
+        }
+
+        showSuccess(`Successfully clustered documents into ${k} clusters`);
+        
+        const out = document.getElementById("output");
+        out.innerHTML = "";
+
+        Object.keys(data.clusters).forEach(clusterId => {
+            const c = data.clusters[clusterId];
+            const docCount = c.docs.length;
+
+            const box = document.createElement("div");
+            box.className = "cluster-box";
+
+            box.innerHTML = `
+                <div class="topic">Cluster ${clusterId}: ${c.topic}</div>
+                <div style="font-size: 12px; color: #999; margin-bottom: 10px;">${docCount} document(s)</div>
+                ${c.docs.map(d => `<div class='doc-item'>${d.substring(0, 300)}${d.length > 300 ? '...' : ''}</div>`).join("")}
+            `;
+
+            out.appendChild(box);
+        });
+
+    } catch (error) {
+        showError("Network error: " + error.message);
+    } finally {
+        btn.disabled = false;
+        document.getElementById("loading").classList.remove("active");
+    }
+}
+
+// Initialize
+document.addEventListener("DOMContentLoaded", function() {
+    document.getElementById("inputDocs").addEventListener("input", updateDocCount);
+    getSupportedFormats();
+});
+</script>
+
+</body>
+</html>
